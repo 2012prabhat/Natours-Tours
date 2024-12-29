@@ -10,7 +10,7 @@ const {
 } = require('../controllers/userController');
 const {
   signUp,
-  login,
+  login,logout,
   forgotPassword,
   resetPassword,
   updatePassword,
@@ -22,6 +22,7 @@ const {
 
 router.post('/signup', signUp);
 router.post('/login', login);
+router.get('/logout', logout);
 router.post('/forgotPassword', forgotPassword);
 router.post('/resetPassword/:token', resetPassword);
 

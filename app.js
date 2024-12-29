@@ -14,9 +14,12 @@ const helmet = require("helmet");
 const mongoSantize = require("express-mongo-sanitize");
 const xss = require('xss-clean');
 const hpp = require('hpp');
+const cookieParser = require('cookie-parser');
 const reviewRouter = require('./routes/reviewRouter');
 const viewRouter = require('./routes/viewRouter');
 const app = express();
+
+
 
 
 app.set('view engine','pug');
@@ -38,16 +41,20 @@ const limiter = rateLimit({
       },
 })
 // app.use(morgan('dev'))
+
+
 app.use('/api',limiter)
 
 //body parser, reading data from req.body
 app.use(express.json({limit:'10kb'}))
+app.use(cookieParser());
 
 //Data santization against NoSql query injection
 app.use(mongoSantize())
 
 //Data sanitization again XSS attacks
 app.use(xss())
+
 
 //prevent parameter pollution, it clear up the query string
 app.use(

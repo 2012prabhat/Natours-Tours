@@ -144,7 +144,7 @@ const tourSchema = new mongoose.Schema(
 
   tourSchema.pre(/^find/,function(next){
     this.populate({
-      path:'guides',
+      path:'guides reviews',
       select:'-__v -passwordChangedAt'
     })
     next()

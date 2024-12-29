@@ -13,6 +13,29 @@ const signToken = id=>{
     })
 }
 
+const createSendToken = (user, statusCode, res) => {
+    const token = signToken(user._id);
+    const cookieOptions = {
+      expires: new Date(
+        Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      ),
+      httpOnly: true
+    };
+    if (process.env.NODE_ENV === 'production') cookieOptions.secure = true;
+  
+    res.cookie('jwt', token, cookieOptions);
+    // Remove password from output
+    user.password = undefined;
+  
+    res.status(statusCode).json({
+      status: 'success',
+      token,
+      data: {
+        user
+      }
+    });
+  };
+
 const filterObj = (obj,...allowedFields) =>{
     const newObj = {};
     Object.keys(obj).forEach(el=>{
@@ -21,6 +44,14 @@ const filterObj = (obj,...allowedFields) =>{
     return newObj;
 }
 
+
+exports.logout = (req,res)=>{
+    res.cookie('jwt','logout',{
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly:true
+    })
+    res.status(200).json({status:'success'})
+  }
 
 
 exports.signUp = catchAsync(async (req,res)=>{
@@ -53,11 +84,8 @@ exports.login = catchAsync(async (req,res,next)=>{
     if(!user || !(await user.correctPassword(password,user.password))){
         return next(new AppError('Incorrect email or password',401));
     }
-    const token = signToken(user._id)
-    res.status(200).json({
-        status:'success',
-        token 
-    })
+    createSendToken(user, 200, res);
+   
 })
 
 exports.protect = catchAsync(async (req,res,next)=>{
@@ -92,6 +120,35 @@ exports.protect = catchAsync(async (req,res,next)=>{
 
     next(); 
 })
+
+exports.isLoggedIn = async (req, res, next) => {
+    console.log('cookies',req.cookies.jwt)
+    if(req.cookies.jwt){
+      try{
+      // 1) verify token
+  const decoded = await promisify(jwt.verify)(req.cookies.jwt, process.env.JWT_SECRET);
+
+  // 3) Check if user still exists
+  const currentUser = await User.findById(decoded.id);
+  if (!currentUser) {
+    return next();
+  }
+
+  // 4) Check if user changed password after the token was issued
+  if (currentUser.changedPasswordAfter(decoded.iat)) {
+    return next();
+  }
+
+  // There is logged in user
+  res.locals.user = currentUser
+  return next();
+}
+catch(err){
+  return next();
+}
+}
+next();
+};
 
 
 exports.restrictTo = (...roles)=>{
@@ -176,16 +233,7 @@ exports.resetPassword = async (req, res, next) => {
     });
 };
 
-const createSendToken = async (user,statusCode,res)=>{
-    const token = signToken(user._id)
-    res.status(statusCode).json({
-        status:'success',
-        token,
-        data:{
-            user
-        }
-    })
-}
+
 
 
 exports.updatePassword = async (req,res,next) => {
